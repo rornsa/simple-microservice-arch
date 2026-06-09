@@ -55,7 +55,7 @@ ehthumbs.db
 Desktop.ini
 
 # Proto generation (optional: keep if you want to force re-gen, but often ignored)
-# proto_gen/
+**/proto_gen/
 
 # Docker
 .docker/
