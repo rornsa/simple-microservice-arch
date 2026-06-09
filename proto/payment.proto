@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package payment.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service PaymentService {
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+}
+
+message Payment {
+  int64 id = 1;
+  int64 student_id = 2;
+  double amount = 3;
+  string reference = 4;
+  string status = 5;
+  optional string transaction_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListPaymentsRequest {
+  optional int64 student_id = 1;
+}
+
+message ListPaymentsResponse {
+  repeated Payment data = 1;
+}

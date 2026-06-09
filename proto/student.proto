@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package student.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service StudentService {
+  rpc CreateStudent(CreateStudentRequest)
+      returns (CreateStudentResponse);
+
+  rpc GetStudent(GetStudentRequest)
+      returns (GetStudentResponse);
+
+  rpc UpdateStudent(UpdateStudentRequest)
+      returns (UpdateStudentResponse);
+
+  rpc DeleteStudent(DeleteStudentRequest)
+      returns (DeleteStudentResponse);
+
+  rpc ListStudents(ListStudentsRequest)
+      returns (ListStudentsResponse);
+
+  rpc MakePayment(MakePaymentRequest)
+      returns (MakePaymentResponse);
+}
+
+
+message Student {
+  int64 id = 1;
+
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+
+  StudentStatus status = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+enum StudentStatus {
+  STUDENT_STATUS_UNSPECIFIED = 0;
+  STUDENT_STATUS_ACTIVE = 1;
+  STUDENT_STATUS_INACTIVE = 2;
+  STUDENT_STATUS_SUSPENDED = 3;
+}
+
+message CreateStudentRequest {
+  string first_name = 1;
+  string last_name = 2;
+  string email = 3;
+}
+
+message CreateStudentResponse {
+  Student student = 1;
+}
+
+message GetStudentRequest {
+  int64 id = 1;
+}
+
+message GetStudentResponse {
+  Student student = 1;
+}
+
+message UpdateStudentRequest {
+  int64 id = 1;
+
+  optional string first_name = 2;
+  optional string last_name = 3;
+  optional string email = 4;
+  optional int32 age = 5;
+
+  optional StudentStatus status = 6;
+}
+
+message UpdateStudentResponse {
+  Student student = 1;
+}
+
+message DeleteStudentRequest {
+  int64 id = 1;
+}
+
+message DeleteStudentResponse {
+  bool success = 1;
+}
+
+message ListStudentsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+
+  optional StudentStatus status = 3;
+}
+
+message Pagination {
+  int32 page = 1;
+  int32 limit = 2;
+  int32 total = 3;
+  int32 total_pages = 4;
+}
+
+message ListStudentsResponse {
+  repeated Student data = 1;
+
+  Pagination pagination = 2;
+}
+
+message MakePaymentRequest {
+  int64 student_id = 1;
+  double amount = 2;
+  string reference = 3;
+}
+
+message MakePaymentResponse {
+  bool success = 1;
+  string message = 2;
+}

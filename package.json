@@ -1,0 +1,10 @@
+{
+  "name": "micro-service",
+  "version": "1.0.0",
+  "scripts": {
+    "proto-generate": "./scripts/proto-gen.sh"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.70.0"
+  }
+}
