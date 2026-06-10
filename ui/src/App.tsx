@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
-import "./App.css";
 import {
   fetchStudents,
   makePayment,
@@ -10,23 +9,37 @@ import {
   type Student,
 } from "./api";
 
+// ─── types ───────────────────────────────────────────────────────────────────
 interface Toast {
   id: string;
   kind: "success" | "error";
   msg: string;
 }
 
-// ---- Helpers ----
-function uid() {
-  return Math.random().toString(36).slice(2);
-}
+// ─── tiny helpers ─────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2);
+const initials = (s: Student) =>
+  ((s.firstName[0] ?? "") + (s.lastName[0] ?? "")).toUpperCase();
 
-function initials(s: Student) {
-  return (s.firstName[0] ?? "") + (s.lastName[0] ?? "");
-}
+// ─── shared class strings ─────────────────────────────────────────────────────
+const FIELD =
+  "w-full bg-surface-2 border border-border-2 rounded-lg !px-4 !py-3 " +
+  "text-sm text-text-1 placeholder:text-text-3 " +
+  "outline-none transition-all duration-150 " +
+  "focus:border-accent focus:ring-2 focus:ring-accent/20";
 
-// ---- Components ----
+const LABEL = "block text-xs font-medium text-text-2 mb-2";
 
+const BTN_PRIMARY =
+  "w-full !py-3 rounded-lg bg-white text-black text-sm font-semibold " +
+  "transition-all duration-150 hover:bg-neutral-100 active:scale-[0.98] " +
+  "disabled:opacity-40 disabled:cursor-not-allowed";
+
+const BTN_GHOST =
+  "border border-border-2 text-text-2 text-xs !px-3 !py-1.5 rounded-lg !my-2 " +
+  "transition-all duration-150 hover:border-border hover:text-text-1 hover:bg-surface-2";
+
+// ─── LoginForm ────────────────────────────────────────────────────────────────
 function LoginForm({
   onLogin,
 }: {
@@ -37,68 +50,100 @@ function LoginForm({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
       const res = await login(email, password);
-      if (res.success) {
-        onLogin(res.data.token, res.data.user.email);
-      } else {
-        setError("Login failed. Please check your credentials.");
-      }
+      if (res.success) onLogin(res.data.token, res.data.user.email);
+      else setError("Invalid credentials — please try again.");
     } catch {
-      setError("An error occurred during login.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="login-card">
-      <div className="login-header">
-        <div className="login-icon">🔐</div>
-        <h2>Welcome Back</h2>
-        <p>Sign in to access the Student Dashboard</p>
-      </div>
-      <form onSubmit={handleSubmit} className="login-form">
-        <div className="form-group">
-          <label>Email Address</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@example.com"
-            required
-          />
+    <div className="animate-in w-full max-w-[420px]">
+      {/* Card */}
+      <div className="bg-surface border border-border rounded-2xl !p-10 shadow-card">
+        {/* Brand */}
+        <div className="mb-8">
+          <div className="w-10 h-10 rounded-xl bg-white text-black text-lg flex items-center justify-center mb-5 font-bold select-none">
+            🎓
+          </div>
+          <h1 className="text-xl font-semibold text-text-1 leading-snug">
+            Welcome back
+          </h1>
+          <p className="text-sm text-text-2 mt-1">
+            Sign in to Student Dashboard
+          </p>
         </div>
-        <div className="form-group">
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-          />
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className={LABEL}>Email</label>
+            <input
+              className={FIELD}
+              type="email"
+              placeholder="admin@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className={LABEL}>Password</label>
+            <input
+              className={FIELD}
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-danger bg-danger-dim border border-danger/20 rounded-md px-3 py-2.5">
+              {error}
+            </p>
+          )}
+
+          <div className="!mt-2"></div>
+
+          <button type="submit" disabled={loading} className={BTN_PRIMARY}>
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <div className="mt-7 pt-6 border-t border-border">
+          <p className="text-xs text-text-3 text-center">
+            Demo: <span className="text-text-2 font-mono">admin@gmail.com</span>{" "}
+            / <span className="text-text-2 font-mono">123456</span>
+          </p>
         </div>
-        {error && <div className="login-error">{error}</div>}
-        <button type="submit" className="btn-pay" disabled={loading}>
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
-      </form>
-      <div className="login-footer">
-        <p>Demo credentials: admin@gmail.com/123456</p>
       </div>
     </div>
   );
 }
 
-function SkeletonCard() {
-  return <div className="skeleton skeleton-card" />;
+// ─── SkeletonRow ──────────────────────────────────────────────────────────────
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4 border border-border rounded-xl animate-skeleton">
+      <div className="w-10 h-10 rounded-full bg-surface-2 shrink-0" />
+      <div className="flex-1 space-y-2.5">
+        <div className="h-3 bg-surface-2 rounded-md w-2/5" />
+        <div className="h-2.5 bg-surface-2/70 rounded-md w-3/5" />
+      </div>
+    </div>
+  );
 }
 
+// ─── StudentCard ──────────────────────────────────────────────────────────────
 function StudentCard({
   student,
   selected,
@@ -109,26 +154,45 @@ function StudentCard({
   onClick: () => void;
 }) {
   return (
-    <div
-      className={`student-card${selected ? " selected" : ""}`}
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && onClick()}
+    <button
       id={`student-${student.id}`}
+      onClick={onClick}
+      className={[
+        "w-full flex items-center gap-4 !px-5 !py-2 rounded-xl border text-left",
+        "transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30",
+        selected
+          ? "bg-accent-dim border-accent/40 shadow-glow"
+          : "bg-surface border-border hover:bg-surface-2 hover:border-border-2",
+      ].join(" ")}
     >
-      <div className="student-avatar">{initials(student)}</div>
-      <div className="student-info">
-        <div className="student-name">
-          {student.firstName} {student.lastName}
-        </div>
-        <div className="student-email">{student.email}</div>
+      {/* Avatar */}
+      <div
+        className={[
+          "w-10 h-10 rounded-full flex items-center justify-center",
+          "text-xs font-bold shrink-0 select-none",
+          selected ? "bg-accent/20 text-accent" : "bg-surface-2 text-text-2",
+        ].join(" ")}
+      >
+        {initials(student)}
       </div>
-      <div className="student-id">#{student.id}</div>
-    </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0 text-left">
+        <p className="text-sm font-medium text-text-1 truncate leading-snug">
+          {student.firstName} {student.lastName}
+        </p>
+        <p className="text-xs text-text-2 truncate mt-1">{student.email}</p>
+      </div>
+
+      {/* ID pill */}
+      <span className="shrink-0 text-[11px] text-text-3 font-mono bg-surface-2 border border-border px-2.5 py-1 rounded-lg">
+        #{student.id}
+      </span>
+    </button>
   );
 }
 
+// ─── PaymentForm ──────────────────────────────────────────────────────────────
 function PaymentForm({
   student,
   onToast,
@@ -142,30 +206,23 @@ function PaymentForm({
 
   const mutation = useMutation({
     mutationFn: () =>
-      makePayment(student.id, {
-        amount: parseFloat(amount),
-        reference,
-      }),
-    onSuccess: (response) => {
-      onToast({
-        id: uid(),
-        kind: "success",
-        msg: response.data.message,
-      });
-
+      makePayment(student.id, { amount: parseFloat(amount), reference }),
+    onSuccess: (res) => {
+      onToast({ id: uid(), kind: "success", msg: res.data.message });
       setAmount("");
       setReference("");
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["payments", student.id] });
-      }, 150);
+      setTimeout(
+        () =>
+          queryClient.invalidateQueries({ queryKey: ["payments", student.id] }),
+        150,
+      );
     },
-    onError: () => {
+    onError: () =>
       onToast({
         id: uid(),
         kind: "error",
-        msg: "Payment failed — see event log.",
-      });
-    },
+        msg: "Payment failed — please try again.",
+      }),
   });
 
   const canSubmit =
@@ -175,62 +232,73 @@ function PaymentForm({
     !mutation.isPending;
 
   return (
-    <div className="payment-card">
-      <div className="section-heading">
-        <span>💳</span>
-        <h2>Initiate Payment</h2>
+    <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden">
+      {/* Header band */}
+      <div className="!px-7 !py-5 border-b border-border flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-text-1">Initiate Payment</p>
+          <p className="text-xs text-text-2 mt-0.5">
+            {student.firstName} {student.lastName}
+            <span className="text-text-3 ml-1.5 font-mono">#{student.id}</span>
+          </p>
+        </div>
+        <span className="text-xl" aria-hidden>
+          💳
+        </span>
       </div>
 
-      <div className="student-chip">
-        <span>👤</span>
-        <span>
-          {student.firstName} {student.lastName}
-        </span>
-        <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
-          #{student.id}
-        </span>
-      </div>
+      {/* Form body */}
+      <div className="!px-7 !py-6 space-y-5">
+        {/* Amount */}
+        <div>
+          <label htmlFor="amount-input" className={LABEL}>
+            Amount (USD)
+          </label>
+          <div className="relative">
+            <input
+              id="amount-input"
+              className={`${FIELD} pl-8`}
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+        </div>
 
-      <div className="form-group">
-        <label htmlFor="amount-input">Amount (USD)</label>
-        <div className="amount-wrap">
-          <span className="currency">$</span>
+        {/* Reference */}
+        <div>
+          <label htmlFor="reference-input" className={LABEL}>
+            Reference
+          </label>
           <input
-            id="amount-input"
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            id="reference-input"
+            className={FIELD}
+            type="text"
+            placeholder="e.g. Tuition Fee Semester 1"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
           />
         </div>
-      </div>
 
-      <div className="form-group">
-        <label htmlFor="reference-input">Payment Reference</label>
-        <input
-          id="reference-input"
-          type="text"
-          placeholder="e.g. Tuition Fee Semester 1"
-          value={reference}
-          onChange={(e) => setReference(e.target.value)}
-        />
-      </div>
+        <div className="!mt-2"></div>
 
-      <button
-        className={`btn-pay${mutation.isPending ? " loading" : ""}`}
-        disabled={!canSubmit}
-        onClick={() => mutation.mutate()}
-        id="btn-initiate-payment"
-      >
-        {mutation.isPending ? "⏳ Processing…" : "⚡ Initiate Payment"}
-      </button>
+        <button
+          id="btn-initiate-payment"
+          className={BTN_PRIMARY}
+          disabled={!canSubmit}
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? "Processing…" : "Initiate Payment →"}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ---- Payment History ----
+// ─── PaymentHistory ───────────────────────────────────────────────────────────
 function PaymentHistory({ student }: { student: Student }) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["payments", student.id],
@@ -239,158 +307,122 @@ function PaymentHistory({ student }: { student: Student }) {
     refetchOnWindowFocus: false,
   });
 
+  const badge = (status: string) => {
+    if (status === "SUCCESS")
+      return "text-success border-success/25 bg-success-dim";
+    if (status === "FAILED")
+      return "text-danger  border-danger/25  bg-danger-dim";
+    return "text-warn    border-warn/25    bg-warn-dim";
+  };
+
   return (
-    <div className="payment-card">
-      <div className="section-heading">
-        <span>📜</span>
-        <h2>Payment History</h2>
-        {data && (
-          <span className="section-badge">{data.data.length} payments</span>
-        )}
+    <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden !mt-2">
+      {/* Header */}
+      <div className=" !py-2 !px-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <p className="text-sm font-semibold text-text-1">Payment History</p>
+          {data && (
+            <span className="text-[11px] font-medium text-text-2 bg-surface-2 border border-border px-2 py-0.5 rounded-full">
+              {data.data.length}
+            </span>
+          )}
+        </div>
         <button
-          className="btn-refetch"
-          onClick={() => refetch()}
           id="btn-refetch-payments"
+          onClick={() => refetch()}
+          className={BTN_GHOST}
         >
           ↺ Refresh
         </button>
       </div>
 
-      {isLoading && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <div className="skeleton" style={{ height: "50px" }} />
-          <div className="skeleton" style={{ height: "50px" }} />
-        </div>
-      )}
+      {/* Body */}
+      <div className="px-7 py-6">
+        {isLoading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-16 rounded-xl bg-surface-2 animate-skeleton"
+              />
+            ))}
+          </div>
+        )}
 
-      {isError && (
-        <div className="error-box">⚠️ Could not fetch payment history.</div>
-      )}
+        {isError && (
+          <div className="text-xs text-danger bg-danger-dim border border-danger/20 rounded-lg px-4 py-3">
+            ⚠️ Could not load payment history.
+          </div>
+        )}
 
-      {data && data.data.length === 0 && (
-        <div className="select-prompt" style={{ padding: "20px 0" }}>
-          <div className="icon">💰</div>
-          No payments found for this student.
-        </div>
-      )}
+        {data?.data.length === 0 && (
+          <div className="text-center py-10">
+            <p className="text-3xl mb-3">💰</p>
+            <p className="text-sm text-text-2">No payments yet</p>
+            <p className="text-xs text-text-3 mt-1">
+              Payments will appear here after you submit one
+            </p>
+          </div>
+        )}
 
-      {data && data.data.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-            maxHeight: "250px",
-            overflowY: "auto",
-          }}
-        >
-          {data.data.map((payment) => (
-            <div
-              key={payment.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "12px 16px",
-                background: "rgba(255, 255, 255, 0.02)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-sm)",
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    fontSize: "0.88rem",
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {payment.reference}
+        {data && data.data.length > 0 && (
+          <div className="space-y-2.5 max-h-80 overflow-y-auto grid gap-y-2 !p-4 ">
+            {data.data.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-start justify-between gap-4 !px-5 !py-2 bg-surface-2/50 border border-border rounded-xl"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-1 truncate">
+                    {p.reference}
+                  </p>
+                  <p className="text-xs text-text-3 mt-0.5">
+                    {p.created_at
+                      ? new Date(p.created_at).toLocaleString()
+                      : "—"}
+                  </p>
+                  {p.transaction_id && (
+                    <p className="text-[11px] text-text-3 font-mono mt-1 truncate">
+                      {p.transaction_id}
+                    </p>
+                  )}
                 </div>
-                <div
-                  style={{
-                    fontSize: "0.72rem",
-                    color: "var(--text-muted)",
-                    marginTop: "2px",
-                  }}
-                >
-                  {payment.created_at
-                    ? new Date(payment.created_at).toLocaleString()
-                    : "N/A"}
-                </div>
-                {payment.transaction_id && (
-                  <div
-                    style={{
-                      fontSize: "0.7rem",
-                      color: "var(--accent-blue)",
-                      marginTop: "4px",
-                      fontFamily: "monospace",
-                    }}
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="text-sm font-semibold text-text-1">
+                    ${p.amount.toFixed(2)}
+                  </span>
+                  <span
+                    className={`text-[10px]  font-semibold uppercase tracking-wide !px-1.5 !py-0.5 rounded border ${badge(p.status)}`}
                   >
-                    TX: {payment.transaction_id}
-                  </div>
-                )}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    color: "var(--accent-green)",
-                  }}
-                >
-                  ${payment.amount.toFixed(2)}
+                    {p.status}
+                  </span>
                 </div>
-                <span
-                  style={{
-                    display: "inline-block",
-                    fontSize: "0.68rem",
-                    fontWeight: 600,
-                    padding: "1px 6px",
-                    borderRadius: "4px",
-                    marginTop: "6px",
-                    textTransform: "uppercase",
-                    background:
-                      payment.status === "SUCCESS"
-                        ? "rgba(72,187,120,0.12)"
-                        : payment.status === "FAILED"
-                          ? "rgba(252,129,129,0.12)"
-                          : "rgba(237,137,54,0.12)",
-                    color:
-                      payment.status === "SUCCESS"
-                        ? "var(--accent-green)"
-                        : payment.status === "FAILED"
-                          ? "var(--accent-red)"
-                          : "var(--accent-orange)",
-                    border:
-                      payment.status === "SUCCESS"
-                        ? "1px solid rgba(72,187,120,0.2)"
-                        : payment.status === "FAILED"
-                          ? "1px solid rgba(252,129,129,0.2)"
-                          : "1px solid rgba(237,137,54,0.2)",
-                  }}
-                >
-                  {payment.status}
-                </span>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+// ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [token, setToken] = useState<string | null>(
-    localStorage.getItem("token"),
-  );
-  const [userEmail, setUserEmail] = useState<string | null>(
-    localStorage.getItem("user"),
-  );
+  const [authLoading, setAuthLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selected, setSelected] = useState<Student | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    function init() {
+      setToken(localStorage.getItem("token"));
+      setUserEmail(localStorage.getItem("user"));
+      setAuthLoading(false);
+    }
+    init();
+  }, []);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["students"],
@@ -399,15 +431,12 @@ export default function App() {
     enabled: !!token,
   });
 
-  // console.log(data);
-
-  const handleLogin = (newToken: string, email: string) => {
-    localStorage.setItem("token", newToken);
+  const handleLogin = (t: string, email: string) => {
+    localStorage.setItem("token", t);
     localStorage.setItem("user", email);
-    setToken(newToken);
+    setToken(t);
     setUserEmail(email);
   };
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -415,169 +444,198 @@ export default function App() {
     setUserEmail(null);
     setSelected(null);
   };
-
   const addToast = (t: Toast) => {
-    setToasts((prev) => [...prev, t]);
-    setTimeout(
-      () => setToasts((prev) => prev.filter((x) => x.id !== t.id)),
-      4000,
-    );
+    setToasts((p) => [...p, t]);
+    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== t.id)), 4000);
   };
 
-  // Socket connection effect
+  // WebSocket
   useEffect(() => {
     if (!selected) return;
-
-    // Connect to WebSocket gateway namespace "/payment"
-    const socket = io("http://localhost:3000/payment", {
-      auth: {
-        studentId: selected.id,
-      },
+    const socket = io(import.meta.env.VITE_API_URL + "/payment", {
+      auth: { studentId: selected.id },
     });
-
-    socket.on("connect", () => {
-      console.log(`Socket connected for student: ${selected.id}`);
-    });
-
-    socket.on("payment.success", (eventData) => {
-      console.log("Received payment success:", eventData);
+    socket.on("connect", () => console.log(`WS connected: ${selected.id}`));
+    socket.on("payment.success", (ev) => {
       addToast({
         id: uid(),
         kind: "success",
-        msg: `Payment of $${eventData.amount} succeeded!`,
+        msg: `Payment of $${ev.amount} succeeded!`,
       });
-      // Invalidate queries to trigger a fresh fetch
       queryClient.invalidateQueries({ queryKey: ["payments", selected.id] });
     });
-
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
-
+    socket.on("disconnect", () => console.log("WS disconnected"));
     return () => {
       socket.disconnect();
     };
   }, [selected, queryClient]);
 
-  if (!token) {
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (authLoading) {
     return (
-      <div className="app">
-        <header className="header">
-          <div className="header-icon">🎓</div>
-          <h1>Student Dashboard</h1>
-          <span className="header-sub">Microservice Event Flow</span>
-        </header>
-        <main
-          style={{
-            flex: 1,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <LoginForm onLogin={handleLogin} />
-        </main>
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-border-2 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
-  return (
-    <div className="app">
-      {/* Header */}
-      <header className="header">
-        <div className="header-icon">🎓</div>
-        <h1>Student Dashboard</h1>
-        <span className="header-sub">Microservice Event Flow</span>
-        {userEmail && (
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span
-              style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}
-            >
-              👤 {userEmail}
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col">
+        {/* Nav */}
+        <nav className="border-b border-border bg-surface/60 backdrop-blur-md">
+          <div className="max-w-5xl mx-auto px-8 h-14 flex items-center gap-3">
+            <div className="w-7 h-7 bg-white rounded-md grid place-items-center text-sm shrink-0">
+              🎓
+            </div>
+            <span className="text-sm font-semibold text-text-1">
+              Student Dashboard
             </span>
-            <button
-              className="header-logout"
-              onClick={handleLogout}
-              id="btn-logout"
-            >
-              Logout
-            </button>
           </div>
-        )}
-      </header>
+        </nav>
+        {/* Center form */}
+        <div className="flex-1 flex items-center justify-center px-4 py-16">
+          <LoginForm onLogin={handleLogin} />
+        </div>
+      </div>
+    );
+  }
 
-      {/* Main */}
-      <main className="main">
-        {/* Left — students */}
-        <div>
-          <div className="section-heading">
-            <span>👥</span>
-            <h2>Students</h2>
-            {data && (
-              <span className="section-badge">
-                {data.pagination.total} total
+  // ── Main ───────────────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-bg text-text-1">
+      {/* ── Navigation ── */}
+      <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto px-8 h-14 flex items-center gap-3">
+          <div className="w-7 h-7 bg-white rounded-md grid place-items-center text-sm shrink-0 select-none">
+            🎓
+          </div>
+          <span className="text-sm font-semibold text-text-1">
+            Student Dashboard
+          </span>
+          <span className="text-xs text-text-3 hidden sm:inline">/</span>
+          <span className="text-xs text-text-3 hidden sm:inline">
+            Microservice Demo
+          </span>
+
+          <div className="ml-auto flex items-center gap-3">
+            {userEmail && (
+              <span className="text-xs text-text-3 hidden md:block truncate max-w-[200px]">
+                {userEmail}
               </span>
             )}
             <button
-              className="btn-refetch"
-              onClick={() => refetch()}
-              id="btn-refetch-students"
+              id="btn-logout"
+              onClick={handleLogout}
+              className={BTN_GHOST + " bg-red-500 text-white"}
             >
-              ↺ Refresh
+              Sign out
             </button>
           </div>
-
-          {isLoading && (
-            <div className="students-grid">
-              {[1, 2, 3].map((i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-          )}
-
-          {isError && (
-            <div className="error-box">
-              ⚠️ Could not fetch students. Is the gateway running on port 3000?
-            </div>
-          )}
-
-          {data?.data && (
-            <div className="students-grid" id="students-list">
-              {data.data.map((s) => (
-                <StudentCard
-                  key={s.id}
-                  student={s}
-                  selected={selected?.id === s.id}
-                  onClick={() => setSelected(s)}
-                />
-              ))}
-            </div>
-          )}
         </div>
+      </nav>
 
-        {/* Right panel */}
-        <div className="right-panel">
-          {selected ? (
-            <>
-              <PaymentForm student={selected} onToast={addToast} />
-              <PaymentHistory student={selected} />
-            </>
-          ) : (
-            <div className="payment-card">
-              <div className="select-prompt">
-                <div className="icon">👈</div>
-                Select a student to initiate a payment
+      {/* ── Page body ── */}
+      <div className="max-w-5xl mx-auto !px-2 !py-2">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
+          {/* ── Left: Students ── */}
+          <div
+            className="animate-in space-y-0"
+            style={{ animationDelay: "0ms" }}
+          >
+            {/* Section title */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-text-1">Students</h2>
+                {data && (
+                  <span className="text-[11px] font-medium text-text-2 bg-surface border border-border px-2 py-0.5 rounded-full">
+                    {data.pagination.total}
+                  </span>
+                )}
               </div>
+              <button
+                id="btn-refetch-students"
+                onClick={() => refetch()}
+                className={BTN_GHOST}
+              >
+                ↺ Refresh
+              </button>
             </div>
-          )}
-        </div>
-      </main>
 
-      {/* Toasts */}
-      <div className="toast-wrap">
+            {/* Skeleton */}
+            {isLoading && (
+              <div className="space-y-2.5">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <SkeletonRow key={i} />
+                ))}
+              </div>
+            )}
+
+            {/* Error */}
+            {isError && (
+              <div className="text-xs text-danger bg-danger-dim border border-danger/20 rounded-lg px-4 py-3">
+                ⚠️ Could not load students. Is the gateway running on port 3000?
+              </div>
+            )}
+
+            {/* List */}
+            {data?.data && (
+              <div className="space-y-2 grid gap-2" id="students-list">
+                {data.data.map((s) => (
+                  <StudentCard
+                    key={s.id}
+                    student={s}
+                    selected={selected?.id === s.id}
+                    onClick={() => setSelected(s)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Right: Payment panel ── */}
+          <div
+            className="space-y-5 animate-in"
+            style={{ animationDelay: "60ms" }}
+          >
+            {selected ? (
+              <>
+                <PaymentForm student={selected} onToast={addToast} />
+                <PaymentHistory student={selected} />
+              </>
+            ) : (
+              <div className="bg-surface border border-border rounded-2xl px-8 py-14 text-center shadow-card">
+                <p className="text-3xl mb-4 select-none">👈</p>
+                <p className="text-sm font-medium text-text-1">
+                  Select a student
+                </p>
+                <p className="text-xs text-text-2 mt-1.5 max-w-[220px] mx-auto">
+                  Choose a student from the list to initiate a payment
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Toasts ── */}
+      <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.kind}`}>
-            {t.kind === "success" ? "✅" : "❌"} {t.msg}
+          <div
+            key={t.id}
+            className={[
+              "animate-toast flex items-center gap-2.5 !px-4 !py-3 rounded-lg border",
+              "text-sm font-medium shadow-card pointer-events-auto max-w-xs",
+              t.kind === "success"
+                ? "bg-surface border-success/30 text-success"
+                : "bg-surface border-danger/30 text-danger",
+            ].join(" ")}
+          >
+            <span className="text-base">
+              {t.kind === "success" ? "✓" : "✕"}
+            </span>
+            <span className="text-text-1 text-xs">{t.msg}</span>
           </div>
         ))}
       </div>

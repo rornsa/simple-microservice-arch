@@ -29,6 +29,21 @@ class StudentDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
+def seed_data():
+    db = SessionLocal()
+    if db.query(StudentDB).count() == 0:
+        from datetime import datetime
+        students = [
+            StudentDB(first_name="John", last_name="Doe", email="john.doe@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
+            StudentDB(first_name="Jane", last_name="Smith", email="jane.smith@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
+            StudentDB(first_name="Alice", last_name="Johnson", email="alice.j@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
+        ]
+        db.add_all(students)
+        db.commit()
+    db.close()
+
+seed_data()
+
 _rmq_channel = None
 _rmq_exchange = None
 _rmq_lock = asyncio.Lock()

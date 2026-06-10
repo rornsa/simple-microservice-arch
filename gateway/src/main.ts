@@ -10,8 +10,8 @@ import { RedisIoAdapter } from './common/redis-io.adapter';
 const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
+
   const app = await NestFactory.create(AppModule, {
-    // Enable verbose logs to see all request mappings and initialization
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
@@ -22,10 +22,7 @@ async function bootstrap() {
   const redisIoAdapter = new RedisIoAdapter(app);
   await redisIoAdapter.connectToRedis(redisUrl);
   app.useWebSocketAdapter(redisIoAdapter);
-
   app.enableCors();
-
-  // Global validation pipe (uses class-validator)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   // Register global ConnectRPC exception filter

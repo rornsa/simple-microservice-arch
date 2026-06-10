@@ -14,7 +14,6 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    restart: always
 
   student:
     build: ./services/student
@@ -40,7 +39,6 @@ services:
       ]
     depends_on:
       - rabbitmq
-    restart: always
 
   payment:
     build: ./services/payment
@@ -68,7 +66,6 @@ services:
       ]
     depends_on:
       - rabbitmq
-    restart: always
 
   notification:
     build: ./services/notification
@@ -93,7 +90,6 @@ services:
       ]
     depends_on:
       - rabbitmq
-    restart: always
 
   auth:
     build: ./services/auth

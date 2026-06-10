@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { StudentService } from './../proto_gen/student_connect';
 import {
   Controller,
   Get,
@@ -7,18 +9,15 @@ import {
   Param,
   Body,
   ParseIntPipe,
-  UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Client } from "@connectrpc/connect";
 import { RpcService } from "../rpc/rpc.service";
-import { StudentService } from "src/proto_gen/student_connect";
 import {
   CreateStudentDto,
   UpdateStudentDto,
   StudentPaymentDto,
 } from "./student.dto";
-import { ConfigService } from "@nestjs/config";
 
 @ApiTags("student")
 @Controller("api/student")
