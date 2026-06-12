@@ -1,3 +1,5 @@
+# When using posgres it will can replica to multiple coZ now it will create a sqlite file on all node  
+
 services:
   rabbitmq:
     image: rabbitmq:3-management
@@ -8,8 +10,6 @@ services:
       RABBITMQ_DEFAULT_PASS: password
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
 
   redis:
     image: redis:alpine
@@ -17,8 +17,6 @@ services:
       - micro-network
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
 
   student:
     image: my-registry/student-service:latest
@@ -28,11 +26,9 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./users.db
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-    command: ["uv", "run", "fastapi", "run", "main.py", "--port", "8000", "--host", "0.0.0.0"]
+    command: [ "uv", "run", "fastapi", "run", "main.py", "--port", "8000", "--host", "0.0.0.0" ]
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
 
   payment:
     image: my-registry/payment-service:latest
@@ -42,11 +38,9 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./payments.db
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-    command: ["uv", "run", "fastapi", "run", "main.py", "--port", "8002", "--host", "0.0.0.0", "--workers", "4"]
+    command: [ "uv", "run", "fastapi", "run", "main.py", "--port", "8002", "--host", "0.0.0.0", "--workers", "4" ]
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
 
   notification:
     image: my-registry/notification-service:latest
@@ -55,11 +49,9 @@ services:
       - micro-network
     environment:
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-    command: ["uv", "run", "fastapi", "run", "main.py", "--port", "8005", "--host", "0.0.0.0"]
+    command: [ "uv", "run", "fastapi", "run", "main.py", "--port", "8005", "--host", "0.0.0.0" ]
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
 
   auth:
     image: my-registry/auth-service:latest
@@ -68,17 +60,13 @@ services:
       - micro-network
     environment:
       - JWT_SECRET=super-secret-key
-    command: ["bun", "run", "src/index.ts"]
+    command: [ "bun", "run", "src/index.ts" ]
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
 
   gateway:
     image: my-registry/gateway:latest
     build: ./gateway
-    ports:
-      - "3000:3000"
     networks:
       - micro-network
     environment:
@@ -88,29 +76,34 @@ services:
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
       - PORT=3000
-    command: ["bun", "run", "start"]
+    command: [ "bun", "run", "start" ]
     deploy:
       replicas: 1
       update_config:
         parallelism: 1
         delay: 10s
-      restart_policy:
-        condition: on-failure
 
   ui:
     image: my-registry/ui:latest
     build: ./ui
-    ports:
-      - "5173:5173"
     networks:
       - micro-network
     environment:
-      # Use localhost if testing on the same machine, or use your SERVER_IP
-      - VITE_API_URL=http://192.168.38.191:3000/api
+      - VITE_API_URL=/api
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
+
+  caddy:
+    image: caddy:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    networks:
+      - micro-network
+    depends_on:
+      - ui
+      - gateway
 
 networks:
   micro-network:

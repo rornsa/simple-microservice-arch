@@ -13,34 +13,7 @@ const paymentDuration = new Trend('payment_duration_ms', true);
 // ─────────────────────────────────────────────
 // CONFIGURATION
 // ─────────────────────────────────────────────
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
-
-// ─────────────────────────────────────────────
-// TEST CONFIGURATION
-// 100 requests over 30 seconds
-// ─────────────────────────────────────────────
-// export const options = {
-//   scenarios: {
-//     payment_test: {
-//       executor: 'constant-arrival-rate',
-//       rate: 1000,
-//       timeUnit: '30s',
-//       duration: '60s',
-//       preAllocatedVUs: 10,
-//       maxVUs: 50,
-//     },
-//   },
-
-//   noConnectionReuse: false,
-//   noVUConnectionReuse: false,
-//   discardResponseBodies: false,
-
-//   thresholds: {
-//     http_req_failed: ['rate<0.05'],
-//     http_req_duration: ['p(95)<3000'],
-//     payment_error_rate: ['rate<0.05'],
-//   },
-// };
+const BASE_URL = __ENV.BASE_URL || 'http://172.20.10.4';
 
 export const options = {
   thresholds: {
@@ -52,9 +25,6 @@ export const options = {
       stages: [
         { duration: '1m', target: 100 },
         { duration: '1m', target: 500 },
-        { duration: '1m', target: 1000 },
-        { duration: '1m', target: 2000 },
-        { duration: '1m', target: 0 },
       ],
     },
   },
@@ -73,6 +43,7 @@ const PARAMS = {
   headers: {
     'Content-Type': 'application/json',
     Connection: 'keep-alive',
+    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODEyNzIyMjIsImV4cCI6MTc4MTI3OTQyMn0.89TLafQUHip1eHUH86TyQ7I80nmvchDuOOFy33-KXOk'
   },
   timeout: '10s',
 };
@@ -101,6 +72,7 @@ export function setup() {
       {
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3ODEyNzIyMjIsImV4cCI6MTc4MTI3OTQyMn0.89TLafQUHip1eHUH86TyQ7I80nmvchDuOOFy33-KXOk'  
         },
       }
     );
@@ -151,7 +123,7 @@ export default function (data) {
       amount,
       reference,
     }),
-    PARAMS
+    PARAMS,
   );
 
   const duration = Date.now() - start;

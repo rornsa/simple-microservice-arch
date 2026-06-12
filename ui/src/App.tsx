@@ -23,7 +23,7 @@ const initials = (s: Student) =>
 
 // ─── shared class strings ─────────────────────────────────────────────────────
 const FIELD =
-  "w-full bg-surface-2 border border-border-2 rounded-lg !px-4 !py-3 " +
+  "w-full bg-surface-2 border border-border-2 rounded-lg px-3 py-2 " +
   "text-sm text-text-1 placeholder:text-text-3 " +
   "outline-none transition-all duration-150 " +
   "focus:border-accent focus:ring-2 focus:ring-accent/20";
@@ -31,12 +31,12 @@ const FIELD =
 const LABEL = "block text-xs font-medium text-text-2 mb-2";
 
 const BTN_PRIMARY =
-  "w-full !py-3 rounded-lg bg-white text-black text-sm font-semibold " +
+  "w-full py-2 rounded-lg bg-white text-black text-sm font-semibold " +
   "transition-all duration-150 hover:bg-neutral-100 active:scale-[0.98] " +
   "disabled:opacity-40 disabled:cursor-not-allowed";
 
 const BTN_GHOST =
-  "border border-border-2 text-text-2 text-xs !px-3 !py-1.5 rounded-lg !my-2 " +
+  "border border-border-2 text-text-2 text-xs px-2.5 py-1 rounded-lg my-1.5 " +
   "transition-all duration-150 hover:border-border hover:text-text-1 hover:bg-surface-2";
 
 // ─── LoginForm ────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ function LoginForm({
   return (
     <div className="animate-in w-full max-w-[420px]">
       {/* Card */}
-      <div className="bg-surface border border-border rounded-2xl !p-10 shadow-card">
+      <div className="bg-surface border border-border rounded-2xl p-6 shadow-card">
         {/* Brand */}
         <div className="mb-8">
           <div className="w-10 h-10 rounded-xl bg-white text-black text-lg flex items-center justify-center mb-5 font-bold select-none">
@@ -82,7 +82,7 @@ function LoginForm({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className={LABEL}>Email</label>
             <input
@@ -112,7 +112,7 @@ function LoginForm({
             </p>
           )}
 
-          <div className="!mt-2"></div>
+          <div className="mt-1"></div>
 
           <button type="submit" disabled={loading} className={BTN_PRIMARY}>
             {loading ? "Signing in…" : "Sign in"}
@@ -133,9 +133,9 @@ function LoginForm({
 // ─── SkeletonRow ──────────────────────────────────────────────────────────────
 function SkeletonRow() {
   return (
-    <div className="flex items-center gap-4 px-5 py-4 border border-border rounded-xl animate-skeleton">
-      <div className="w-10 h-10 rounded-full bg-surface-2 shrink-0" />
-      <div className="flex-1 space-y-2.5">
+    <div className="flex items-center gap-3 px-4 py-2 border border-border rounded-xl animate-skeleton">
+      <div className="w-9 h-9 rounded-full bg-surface-2 shrink-0" />
+      <div className="flex-1 space-y-1.5">
         <div className="h-3 bg-surface-2 rounded-md w-2/5" />
         <div className="h-2.5 bg-surface-2/70 rounded-md w-3/5" />
       </div>
@@ -158,7 +158,7 @@ function StudentCard({
       id={`student-${student.id}`}
       onClick={onClick}
       className={[
-        "w-full flex items-center gap-4 !px-5 !py-2 rounded-xl border text-left",
+        "w-full flex items-center gap-3 px-4 py-1.5 rounded-xl border text-left",
         "transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30",
         selected
           ? "bg-accent-dim border-accent/40 shadow-glow"
@@ -168,7 +168,7 @@ function StudentCard({
       {/* Avatar */}
       <div
         className={[
-          "w-10 h-10 rounded-full flex items-center justify-center",
+          "w-9 h-9 rounded-full flex items-center justify-center",
           "text-xs font-bold shrink-0 select-none",
           selected ? "bg-accent/20 text-accent" : "bg-surface-2 text-text-2",
         ].join(" ")}
@@ -234,7 +234,7 @@ function PaymentForm({
   return (
     <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden">
       {/* Header band */}
-      <div className="!px-7 !py-5 border-b border-border flex items-center justify-between">
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-text-1">Initiate Payment</p>
           <p className="text-xs text-text-2 mt-0.5">
@@ -248,7 +248,7 @@ function PaymentForm({
       </div>
 
       {/* Form body */}
-      <div className="!px-7 !py-6 space-y-5">
+      <div className="px-5 py-4 space-y-4">
         {/* Amount */}
         <div>
           <label htmlFor="amount-input" className={LABEL}>
@@ -283,7 +283,7 @@ function PaymentForm({
           />
         </div>
 
-        <div className="!mt-2"></div>
+        <div className="mt-1"></div>
 
         <button
           id="btn-initiate-payment"
@@ -316,9 +316,9 @@ function PaymentHistory({ student }: { student: Student }) {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden !mt-2">
+    <div className="bg-surface border border-border rounded-2xl shadow-card overflow-hidden mt-1.5">
       {/* Header */}
-      <div className=" !py-2 !px-4 border-b border-border flex items-center justify-between">
+      <div className="py-1.5 px-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <p className="text-sm font-semibold text-text-1">Payment History</p>
           {data && (
@@ -337,7 +337,7 @@ function PaymentHistory({ student }: { student: Student }) {
       </div>
 
       {/* Body */}
-      <div className="px-7 py-6">
+      <div className="px-5 py-4">
         {isLoading && (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -366,11 +366,11 @@ function PaymentHistory({ student }: { student: Student }) {
         )}
 
         {data && data.data.length > 0 && (
-          <div className="space-y-2.5 max-h-80 overflow-y-auto grid gap-y-2 !p-4 ">
+          <div className="space-y-1.5 max-h-96 overflow-y-auto grid gap-y-1.5 p-2">
             {data.data.map((p) => (
               <div
                 key={p.id}
-                className="flex items-start justify-between gap-4 !px-5 !py-2 bg-surface-2/50 border border-border rounded-xl"
+                className="flex items-start justify-between gap-3 px-4 py-1.5 bg-surface-2/50 border border-border rounded-xl"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-1 truncate">
@@ -392,7 +392,7 @@ function PaymentHistory({ student }: { student: Student }) {
                     ${p.amount.toFixed(2)}
                   </span>
                   <span
-                    className={`text-[10px]  font-semibold uppercase tracking-wide !px-1.5 !py-0.5 rounded border ${badge(p.status)}`}
+                    className={`text-[9px]  font-semibold uppercase tracking-wide px-1 py-0.5 rounded border ${badge(p.status)}`}
                   >
                     {p.status}
                   </span>
@@ -485,7 +485,7 @@ export default function App() {
       <div className="min-h-screen bg-bg flex flex-col">
         {/* Nav */}
         <nav className="border-b border-border bg-surface/60 backdrop-blur-md">
-          <div className="max-w-5xl mx-auto px-8 h-14 flex items-center gap-3">
+          <div className="max-w-5xl mx-auto px-4 h-12 flex items-center gap-3">
             <div className="w-7 h-7 bg-white rounded-md grid place-items-center text-sm shrink-0">
               🎓
             </div>
@@ -507,7 +507,7 @@ export default function App() {
     <div className="min-h-screen bg-bg text-text-1">
       {/* ── Navigation ── */}
       <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto px-8 h-14 flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4 h-12 flex items-center gap-3">
           <div className="w-7 h-7 bg-white rounded-md grid place-items-center text-sm shrink-0 select-none">
             🎓
           </div>
@@ -537,15 +537,15 @@ export default function App() {
       </nav>
 
       {/* ── Page body ── */}
-      <div className="max-w-5xl mx-auto !px-2 !py-2">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
+      <div className="max-w-5xl mx-auto px-4 py-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
           {/* ── Left: Students ── */}
           <div
             className="animate-in space-y-0"
             style={{ animationDelay: "0ms" }}
           >
             {/* Section title */}
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-text-1">Students</h2>
                 {data && (
@@ -565,7 +565,7 @@ export default function App() {
 
             {/* Skeleton */}
             {isLoading && (
-              <div className="space-y-2.5">
+              <div className="space-y-1.5">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <SkeletonRow key={i} />
                 ))}
@@ -581,7 +581,7 @@ export default function App() {
 
             {/* List */}
             {data?.data && (
-              <div className="space-y-2 grid gap-2" id="students-list">
+              <div className="space-y-1.5 grid gap-1.5" id="students-list">
                 {data.data.map((s) => (
                   <StudentCard
                     key={s.id}
@@ -596,7 +596,7 @@ export default function App() {
 
           {/* ── Right: Payment panel ── */}
           <div
-            className="space-y-5 animate-in"
+            className="space-y-4 animate-in"
             style={{ animationDelay: "60ms" }}
           >
             {selected ? (
@@ -625,7 +625,7 @@ export default function App() {
           <div
             key={t.id}
             className={[
-              "animate-toast flex items-center gap-2.5 !px-4 !py-3 rounded-lg border",
+              "animate-toast flex items-center gap-2 px-3 py-2 rounded-lg border",
               "text-sm font-medium shadow-card pointer-events-auto max-w-xs",
               t.kind === "success"
                 ? "bg-surface border-success/30 text-success"

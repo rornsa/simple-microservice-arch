@@ -1,0 +1,10 @@
+:80 {
+    # Reverse proxy API requests to the gateway
+    reverse_proxy /api/* gateway:3000
+
+    # Reverse proxy Socket.io (WebSockets) to the gateway
+    reverse_proxy /socket.io/* gateway:3000
+
+    # Reverse proxy all other requests to the frontend (ui)
+    reverse_proxy /* ui:5173
+}
