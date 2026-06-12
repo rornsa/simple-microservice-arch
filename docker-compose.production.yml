@@ -20,7 +20,7 @@ services:
 
   student:
     image: my-registry/student-service:latest
-    build: ./services/student
+    build: ./api/services/student
     networks:
       - micro-network
     environment:
@@ -32,7 +32,7 @@ services:
 
   payment:
     image: my-registry/payment-service:latest
-    build: ./services/payment
+    build: ./api/services/payment
     networks:
       - micro-network
     environment:
@@ -44,7 +44,7 @@ services:
 
   notification:
     image: my-registry/notification-service:latest
-    build: ./services/notification
+    build: ./api/services/notification
     networks:
       - micro-network
     environment:
@@ -55,7 +55,7 @@ services:
 
   auth:
     image: my-registry/auth-service:latest
-    build: ./services/auth
+    build: ./api/services/auth
     networks:
       - micro-network
     environment:
@@ -66,7 +66,7 @@ services:
 
   gateway:
     image: my-registry/gateway:latest
-    build: ./gateway
+    build: ./api/gateway
     networks:
       - micro-network
     environment:

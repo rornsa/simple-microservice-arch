@@ -14,15 +14,15 @@
 #    - Otherwise, falls back to local host CLI and APIs.
 #
 #  Usage:
-#    chmod +x tests/cleanup.sh
-#    ./tests/cleanup.sh
+#    chmod +x api/tests/cleanup.sh
+#    ./api/tests/cleanup.sh
 # =================================================================
 
 set -euo pipefail
 
 # ── Resolve paths ────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # ── RabbitMQ management API ─────────────────────────────────────
 RABBITMQ_HOST="${RABBITMQ_HOST:-localhost}"
@@ -32,8 +32,8 @@ RABBITMQ_PASS="${RABBITMQ_PASS:-password}"
 RABBITMQ_API="http://${RABBITMQ_HOST}:${RABBITMQ_PORT}/api"
 
 # ── Database paths (local fallback) ──────────────────────────────
-PAYMENT_DB="${PROJECT_DIR}/services/payment/payments.db"
-STUDENT_DB="${PROJECT_DIR}/services/student/users.db"
+PAYMENT_DB="${PROJECT_DIR}/api/services/payment/payments.db"
+STUDENT_DB="${PROJECT_DIR}/api/services/student/users.db"
 
 # ── Options ─────────────────────────────────────────────────────
 # Set to "true" to also delete ALL students (not just loadtest ones)
@@ -299,6 +299,6 @@ else
 fi
 
 echo ""
-echo -e "  💡 To run the load test:   ${CYAN}k6 run tests/load-test.js${NC}"
+echo -e "  💡 To run the load test:   ${CYAN}k6 run api/tests/load-test.js${NC}"
 echo -e "  💡 Install k6 (macOS):     ${CYAN}brew install k6${NC}"
 echo ""

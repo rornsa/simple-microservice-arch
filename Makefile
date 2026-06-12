@@ -19,17 +19,16 @@ help:
 # 1. Generate Proto Files
 proto-gen:
 	@echo "Generating proto files..."
-	./scripts/proto-gen.sh
+	./api/scripts/proto-gen.sh
 
 # 2. Build All Images
 build-all:
 	@echo "Building all images for production..."
 	docker-compose -f $(PROD_COMPOSE_FILE) build
 
-# 3. Seed Databases
 seed:
 	@echo "Seeding Student Service..."
-	cd services/student && uv run python seed.py
+	cd api/services/student && uv run python seed.py
 	@echo "Auth Service users are pre-seeded in memory."
 
 # 3. Development Commands

@@ -7,8 +7,8 @@ python3 -c '
 import os
 import re
 
-# Find all proto_gen directories under services/
-services_dir = "services"
+# Find all proto_gen directories under api/services/
+services_dir = "api/services"
 proto_gen_dirs = []
 
 if os.path.exists(services_dir):

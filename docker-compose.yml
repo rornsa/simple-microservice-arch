@@ -16,12 +16,12 @@ services:
       - "6379:6379"
 
   student:
-    build: ./services/student
+    build: ./api/services/student
     container_name: student_service
     ports:
       - "8000:8000"
     volumes:
-      - ./services/student:/app
+      - ./api/services/student:/app
     environment:
       - DATABASE_URL=sqlite:///./users.db
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
@@ -41,12 +41,12 @@ services:
       - rabbitmq
 
   payment:
-    build: ./services/payment
+    build: ./api/services/payment
     container_name: payment_service
     ports:
       - "8002:8002"
     volumes:
-      - ./services/payment:/app
+      - ./api/services/payment:/app
     environment:
       - DATABASE_URL=sqlite:///./payments.db
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
@@ -68,12 +68,12 @@ services:
       - rabbitmq
 
   notification:
-    build: ./services/notification
+    build: ./api/services/notification
     container_name: notification_service
     ports:
       - "8005:8005"
     volumes:
-      - ./services/notification:/app
+      - ./api/services/notification:/app
     environment:
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
     command:
@@ -92,24 +92,24 @@ services:
       - rabbitmq
 
   auth:
-    build: ./services/auth
+    build: ./api/services/auth
     container_name: auth_service
     ports:
       - "8001:8001"
     volumes:
-      - ./services/auth:/app
+      - ./api/services/auth:/app
       - /app/node_modules
     environment:
       - JWT_SECRET=super-secret-key
     command: ["bun", "run", "dev"]
 
   gateway:
-    build: ./gateway
+    build: ./api/gateway
     container_name: gateway
     ports:
       - "3000:3000"
     volumes:
-      - ./gateway:/app
+      - ./api/gateway:/app
       - /app/node_modules
     environment:
       - USER_SERVICE_URL=http://student:8000/connect

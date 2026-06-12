@@ -2,36 +2,36 @@ version: v2
 plugins:
   # Generate Python code for Student Service
   - remote: buf.build/protocolbuffers/python:v29.3
-    out: services/student/proto_gen
+    out: api/services/student/proto_gen
   - remote: buf.build/protocolbuffers/pyi:v29.3
-    out: services/student/proto_gen
+    out: api/services/student/proto_gen
   - remote: buf.build/connectrpc/python:v0.10.0
-    out: services/student/proto_gen
+    out: api/services/student/proto_gen
 
   # Generate Python code for Payment Service
   - remote: buf.build/protocolbuffers/python:v29.3
-    out: services/payment/proto_gen
+    out: api/services/payment/proto_gen
   - remote: buf.build/protocolbuffers/pyi:v29.3
-    out: services/payment/proto_gen
+    out: api/services/payment/proto_gen
   - remote: buf.build/connectrpc/python:v0.10.0
-    out: services/payment/proto_gen
+    out: api/services/payment/proto_gen
 
   # Generate TS code for Gateway
   - remote: buf.build/bufbuild/es:v1.10.0
-    out: gateway/src/proto_gen
+    out: api/gateway/src/proto_gen
     opt:
       - target=ts
   - remote: buf.build/connectrpc/es:v1.6.1
-    out: gateway/src/proto_gen
+    out: api/gateway/src/proto_gen
     opt:
       - target=ts
 
   # Generate TS code for Auth Service
   - remote: buf.build/bufbuild/es:v1.10.0
-    out: services/auth/src/proto_gen
+    out: api/services/auth/src/proto_gen
     opt:
       - target=ts
   - remote: buf.build/connectrpc/es:v1.6.1
-    out: services/auth/src/proto_gen
+    out: api/services/auth/src/proto_gen
     opt:
       - target=ts
