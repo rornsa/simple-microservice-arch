@@ -84,8 +84,9 @@ function LoginForm({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className={LABEL}>Email</label>
+            <label htmlFor="email-input" className={LABEL}>Email</label>
             <input
+              id="email-input"
               className={FIELD}
               type="email"
               placeholder="admin@example.com"
@@ -95,8 +96,9 @@ function LoginForm({
             />
           </div>
           <div>
-            <label className={LABEL}>Password</label>
+            <label htmlFor="password-input" className={LABEL}>Password</label>
             <input
+              id="password-input"
               className={FIELD}
               type="password"
               placeholder="••••••••"

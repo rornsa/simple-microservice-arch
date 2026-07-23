@@ -22,146 +22,171 @@ interface User {
 }
 
 // In-memory object store
-const users: Record<string, User> = {
-  // Pre-seed a demo user
-  "admin@gmail.com": {
-    id: 1,
-    email: "admin@gmail.com",
-    password: bcrypt.hashSync("123456", 10),
-    role: "admin",
-  }
+export const createUserStore = () => {
+  const users: Record<string, User> = {
+    // Pre-seed a demo user
+    "admin@gmail.com": {
+      id: 1,
+      email: "admin@gmail.com",
+      password: bcrypt.hashSync("123456", 10),
+      role: "admin",
+    }
+  };
+  let nextId = 2;
+  
+  return {
+    get users() { return users; },
+    get nextId() { return nextId; },
+    incrementNextId() { nextId++; },
+    reset() {
+      Object.keys(users).forEach(key => delete users[key]);
+      users["admin@gmail.com"] = {
+        id: 1,
+        email: "admin@gmail.com",
+        password: bcrypt.hashSync("123456", 10),
+        role: "admin",
+      };
+      nextId = 2;
+    }
+  };
 };
 
-let nextId = 2;
+// Default store for the app
+export const defaultUserStore = createUserStore();
 
-export default (router: ConnectRouter) => {
-  router.service(AuthService, {
-    async login(req: LoginRequest): Promise<Partial<LoginResponse>> {
-      console.log(`[Auth] Login attempt: ${req.email}`);
+export const createAuthService = (userStore = defaultUserStore) => {
+  return (router: ConnectRouter) => {
+    router.service(AuthService, {
+      async login(req: LoginRequest): Promise<Partial<LoginResponse>> {
+        console.log(`[Auth] Login attempt: ${req.email}`);
 
-      const user = users[req.email];
+        const user = userStore.users[req.email];
 
-      if (!user) {
-        throw new ConnectError(
-          "Invalid email or password",
-          Code.Unauthenticated
+        if (!user) {
+          throw new ConnectError(
+            "Invalid email or password",
+            Code.Unauthenticated
+          );
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+          req.password,
+          user.password
         );
-      }
 
-      const isPasswordValid = await bcrypt.compare(
-        req.password,
-        user.password
-      );
+        if (!isPasswordValid) {
+          throw new ConnectError(
+            "Invalid email or password",
+            Code.Unauthenticated
+          );
+        }
 
-      if (!isPasswordValid) {
-        throw new ConnectError(
-          "Invalid email or password",
-          Code.Unauthenticated
-        );
-      }
-
-      const token = await new SignJWT({
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      })
-        .setProtectedHeader({ alg: "HS256" })
-        .setIssuedAt()
-        .setExpirationTime("2h")
-        .sign(JWT_SECRET);
-
-      return {
-        success: true,
-        token,
-        user: new AuthUser({
+        const token = await new SignJWT({
           id: user.id,
           email: user.email,
           role: user.role,
-        }),
-      };
-    },
+        })
+          .setProtectedHeader({ alg: "HS256" })
+          .setIssuedAt()
+          .setExpirationTime("2h")
+          .sign(JWT_SECRET);
 
-    async register(
-      req: RegisterRequest
-    ): Promise<Partial<RegisterResponse>> {
-      console.log(`[Auth] Registering: ${req.email}`);
+        return {
+          success: true,
+          token,
+          user: new AuthUser({
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          }),
+        };
+      },
 
-      if (!req.email?.trim()) {
-        throw new ConnectError(
-          "Email is required",
-          Code.InvalidArgument
-        );
-      }
+      async register(
+        req: RegisterRequest
+      ): Promise<Partial<RegisterResponse>> {
+        console.log(`[Auth] Registering: ${req.email}`);
 
-      if (!req.password || req.password.length < 6) {
-        throw new ConnectError(
-          "Password must be at least 6 characters",
-          Code.InvalidArgument
-        );
-      }
+        if (!req.email?.trim()) {
+          throw new ConnectError(
+            "Email is required",
+            Code.InvalidArgument
+          );
+        }
 
-      if (users[req.email]) {
-        throw new ConnectError(
-          "Email already exists",
-          Code.AlreadyExists
-        );
-      }
+        if (!req.password || req.password.length < 6) {
+          throw new ConnectError(
+            "Password must be at least 6 characters",
+            Code.InvalidArgument
+          );
+        }
 
-      const hashedPassword = await bcrypt.hash(req.password, 10);
-      const newUser: User = {
-        id: nextId++,
-        email: req.email,
-        password: hashedPassword,
-        role: "user",
-      };
+        if (userStore.users[req.email]) {
+          throw new ConnectError(
+            "Email already exists",
+            Code.AlreadyExists
+          );
+        }
 
-      users[req.email] = newUser;
+        const hashedPassword = await bcrypt.hash(req.password, 10);
+        const newUser: User = {
+          id: userStore.nextId,
+          email: req.email,
+          password: hashedPassword,
+          role: "user",
+        };
 
-      return {
-        success: true,
-        user: new AuthUser({
-          id: newUser.id,
-          email: newUser.email,
-          role: newUser.role,
-        }),
-      };
-    },
+        userStore.users[req.email] = newUser;
+        userStore.incrementNextId();
 
-    async verify(
-      req: VerifyRequest
-    ): Promise<Partial<VerifyResponse>> {
-      console.log("[Auth] Verifying token");
+        return {
+          success: true,
+          user: new AuthUser({
+            id: newUser.id,
+            email: newUser.email,
+            role: newUser.role,
+          }),
+        };
+      },
 
-      try {
-        if (!req.token) {
+      async verify(
+        req: VerifyRequest
+      ): Promise<Partial<VerifyResponse>> {
+        console.log("[Auth] Verifying token");
+
+        try {
+          if (!req.token) {
+            return {
+              valid: false,
+            };
+          }
+
+          const { payload } = await jwtVerify(
+            req.token,
+            JWT_SECRET
+          );
+
+          return {
+            valid: true,
+            user: new AuthUser({
+              id: payload.id as number,
+              email: payload.email as string,
+              role: payload.role as string,
+            }),
+          };
+        } catch (error) {
+          console.error(
+            "[Auth] Token verification failed:",
+            error
+          );
+
           return {
             valid: false,
           };
         }
-
-        const { payload } = await jwtVerify(
-          req.token,
-          JWT_SECRET
-        );
-
-        return {
-          valid: true,
-          user: new AuthUser({
-            id: payload.id as number,
-            email: payload.email as string,
-            role: payload.role as string,
-          }),
-        };
-      } catch (error) {
-        console.error(
-          "[Auth] Token verification failed:",
-          error
-        );
-
-        return {
-          valid: false,
-        };
-      }
-    },
-  });
+      },
+    });
+  };
 };
+
+export default createAuthService();

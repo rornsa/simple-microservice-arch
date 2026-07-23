@@ -5,14 +5,13 @@ import json
 import aio_pika
 from connectrpc.errors import ConnectError
 from fastapi import FastAPI
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy.orm import sessionmaker
 from config import env
-from config.db import engine, Base, SessionLocal
+from config.db import Base
 from functools import lru_cache
 from connectrpc.code import Code
-
-# Global lazy‑initialized RabbitMQ connection (reused across calls)
-_rmq_connection: aio_pika.RobustConnection | None = None
+from typing import Optional, Callable
 
 # -----------------------
 # DB Model
@@ -27,38 +26,6 @@ class StudentDB(Base):
     created_at = Column(String, index=True)
     updated_at = Column(String, index=True)
 
-Base.metadata.create_all(bind=engine)
-
-def seed_data():
-    db = SessionLocal()
-    if db.query(StudentDB).count() == 0:
-        from datetime import datetime
-        students = [
-            StudentDB(first_name="John", last_name="Doe", email="john.doe@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
-            StudentDB(first_name="Jane", last_name="Smith", email="jane.smith@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
-            StudentDB(first_name="Alice", last_name="Johnson", email="alice.j@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
-        ]
-        db.add_all(students)
-        db.commit()
-    db.close()
-
-seed_data()
-
-_rmq_channel = None
-_rmq_exchange = None
-_rmq_lock = asyncio.Lock()
-
-async def init_rabbitmq():
-    global _rmq_connection, _rmq_channel, _rmq_exchange
-    settings = get_settings()
-    _rmq_connection = await aio_pika.connect_robust(settings.rabbitmq_url)
-    _rmq_channel = await _rmq_connection.channel()
-    _rmq_exchange = await _rmq_channel.declare_exchange(
-        "microservices_exchange",
-        aio_pika.ExchangeType.TOPIC,
-        durable=True,
-    )
-
 # -----------------------
 # Settings
 # -----------------------
@@ -66,46 +33,38 @@ async def init_rabbitmq():
 def get_settings():
     return env.Settings()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_rabbitmq()
-    yield
-    if _rmq_connection:
-        await _rmq_connection.close()
-
-# -----------------------
-# FastAPI App
-# -----------------------
-app = FastAPI(lifespan=lifespan)
-
-# -----------------------
-# ConnectRPC imports
-# -----------------------
-from connectrpc.request import RequestContext
-import proto_gen.student_pb2 as student_pb
-from proto_gen.student_connect import StudentServiceASGIApplication, StudentService
-
 # -----------------------
 # Service Implementation
 # -----------------------
-class StudentServiceImpl(StudentService):
+class StudentServiceImpl:
+    def __init__(
+        self,
+        db_session_factory: Callable[[], any],
+        rmq_exchange: Optional[aio_pika.Exchange] = None,
+    ):
+        self.db_session_factory = db_session_factory
+        self.rmq_exchange = rmq_exchange
 
     async def create_student(
         self,
-        request: student_pb.CreateStudentRequest,
-        ctx: RequestContext
-    ) -> student_pb.CreateStudentResponse:
+        request,
+        ctx,
+    ):
+        import proto_gen.student_pb2 as student_pb
 
-        db = SessionLocal()
+        db = self.db_session_factory()
         try:
             existing = db.query(StudentDB).filter(StudentDB.email == request.email).first()
             if existing:
                 raise ConnectError(Code.ALREADY_EXISTS, "Email already exists")
 
+            from datetime import datetime
             student = StudentDB(
                 first_name=request.first_name,
                 last_name=request.last_name,
                 email=request.email,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
             )
             db.add(student)
             db.commit()
@@ -124,13 +83,14 @@ class StudentServiceImpl(StudentService):
 
     async def get_student(
         self,
-        request: student_pb.GetStudentRequest,
-        ctx: RequestContext
-    ) -> student_pb.GetStudentResponse:
+        request,
+        ctx,
+    ):
+        import proto_gen.student_pb2 as student_pb
 
-        db = SessionLocal()
+        db = self.db_session_factory()
         try:
-            student = db.query(StudentDB).filter(StudentDB.id == request.student_id).first()
+            student = db.query(StudentDB).filter(StudentDB.id == request.id).first()
 
             if not student:
                 raise ConnectError(Code.NOT_FOUND, "Student not found")
@@ -148,13 +108,13 @@ class StudentServiceImpl(StudentService):
 
     async def list_students(
         self,
-        request: student_pb.ListStudentsRequest,
-        ctx: RequestContext
-    ) -> student_pb.ListStudentsResponse:
+        request,
+        ctx,
+    ):
+        import proto_gen.student_pb2 as student_pb
 
-        db = SessionLocal()
+        db = self.db_session_factory()
         try:
-
             page = request.page
             limit = request.limit
             skip = (page - 1) * limit
@@ -188,26 +148,32 @@ class StudentServiceImpl(StudentService):
 
     async def update_student(
         self,
-        request: student_pb.UpdateStudentRequest,
-        ctx: RequestContext
-    ) -> student_pb.UpdateStudentResponse:
+        request,
+        ctx,
+    ):
+        import proto_gen.student_pb2 as student_pb
 
-        db = SessionLocal()
+        db = self.db_session_factory()
         try:
             student = db.query(StudentDB).filter(StudentDB.id == request.id).first()
 
             if not student:
                 raise ConnectError(Code.NOT_FOUND, "Student not found")
 
-            exist = db.query(StudentDB).filter(StudentDB.email == request.email).first()
-            if exist and exist.id != request.id:
-                raise ConnectError(Code.ALREADY_EXISTS, "Email already exists")
+            if request.HasField("email"):
+                exist = db.query(StudentDB).filter(StudentDB.email == request.email).first()
+                if exist and exist.id != request.id:
+                    raise ConnectError(Code.ALREADY_EXISTS, "Email already exists")
+                student.email = request.email
 
             if request.HasField("first_name"):
                 student.first_name = request.first_name
 
             if request.HasField("last_name"):
                 student.last_name = request.last_name
+
+            from datetime import datetime
+            student.updated_at = datetime.now().isoformat()
 
             db.commit()
             db.refresh(student)
@@ -225,23 +191,17 @@ class StudentServiceImpl(StudentService):
 
     async def delete_student(
         self,
-        request: student_pb.DeleteStudentRequest,
-        ctx: RequestContext
-    ) -> student_pb.DeleteStudentResponse:
+        request,
+        ctx,
+    ):
+        import proto_gen.student_pb2 as student_pb
 
-        db = SessionLocal()
+        db = self.db_session_factory()
         try:
             student = db.query(StudentDB).filter(StudentDB.id == request.id).first()
 
             if not student:
                 raise ConnectError(Code.NOT_FOUND, "Student not found")
-
-            student_pb.Student(
-                id=student.id,
-                email=student.email,
-                first_name=student.first_name,
-                last_name=student.last_name,
-            )
 
             db.delete(student)
             db.commit()
@@ -254,14 +214,13 @@ class StudentServiceImpl(StudentService):
 
     async def make_payment(
         self,
-        request: student_pb.MakePaymentRequest,
-        ctx: RequestContext,
-    ) -> student_pb.MakePaymentResponse:
+        request,
+        ctx,
+    ):
+        import proto_gen.student_pb2 as student_pb
 
         student_exists = None
-
-        # Fast DB lookup and immediate release
-        with SessionLocal() as db:
+        with self.db_session_factory() as db:
             student_exists = (
                 db.query(StudentDB.id)
                 .filter(StudentDB.id == request.student_id)
@@ -280,26 +239,97 @@ class StudentServiceImpl(StudentService):
             "reference": request.reference,
         }
         try:
-            await _rmq_exchange.publish(
-                aio_pika.Message(
-                    body=json.dumps(event_data).encode(),
-                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                ),
-                routing_key="student.payment.requested",
-            )
+            if self.rmq_exchange:
+                await self.rmq_exchange.publish(
+                    aio_pika.Message(
+                        body=json.dumps(event_data).encode(),
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    ),
+                    routing_key="student.payment.requested",
+                )
             return student_pb.MakePaymentResponse(
                 success=True,
                 message="Payment initiation event published successfully",
             )
         except Exception as err:
             print(f"[Student Service] RabbitMQ publish failed: {err}")
-
             raise ConnectError(
                 Code.INTERNAL,
                 "Failed to publish payment request",
             )
 
 # -----------------------
-# Mount ConnectRPC
+# Application Setup (Production)
 # -----------------------
-app.mount("/connect", StudentServiceASGIApplication(StudentServiceImpl()))
+def create_app(
+    db_url: Optional[str] = None,
+    rmq_url: Optional[str] = None,
+):
+    from config.db import engine, SessionLocal as ProdSessionLocal
+    from proto_gen.student_connect import StudentServiceASGIApplication, StudentService
+
+    # Use test or prod DB
+    if db_url:
+        test_engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        Base.metadata.create_all(bind=test_engine)
+        TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+        session_factory = TestSessionLocal
+    else:
+        Base.metadata.create_all(bind=engine)
+        session_factory = ProdSessionLocal
+
+    # Seed data for prod
+    if not db_url:
+        def seed_data():
+            db = session_factory()
+            if db.query(StudentDB).count() == 0:
+                from datetime import datetime
+                students = [
+                    StudentDB(first_name="John", last_name="Doe", email="john.doe@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
+                    StudentDB(first_name="Jane", last_name="Smith", email="jane.smith@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
+                    StudentDB(first_name="Alice", last_name="Johnson", email="alice.j@example.com", created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat()),
+                ]
+                db.add_all(students)
+                db.commit()
+            db.close()
+        seed_data()
+
+    # RabbitMQ setup
+    _rmq_connection: aio_pika.RobustConnection | None = None
+    _rmq_exchange: aio_pika.Exchange | None = None
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        nonlocal _rmq_connection, _rmq_exchange
+        settings = get_settings()
+        if rmq_url or settings.rabbitmq_url:
+            _rmq_connection = await aio_pika.connect_robust(rmq_url or settings.rabbitmq_url)
+            _rmq_channel = await _rmq_connection.channel()
+            _rmq_exchange = await _rmq_channel.declare_exchange(
+                "microservices_exchange",
+                aio_pika.ExchangeType.TOPIC,
+                durable=True,
+            )
+        yield
+        if _rmq_connection:
+            await _rmq_connection.close()
+
+    app = FastAPI(lifespan=lifespan)
+
+    # Create service instance
+    service_impl = StudentServiceImpl(session_factory, _rmq_exchange)
+
+    # Wrap with connectrpc service class
+    class ConnectStudentService(StudentService):
+        async def create_student(self, request, ctx): return await service_impl.create_student(request, ctx)
+        async def get_student(self, request, ctx): return await service_impl.get_student(request, ctx)
+        async def list_students(self, request, ctx): return await service_impl.list_students(request, ctx)
+        async def update_student(self, request, ctx): return await service_impl.update_student(request, ctx)
+        async def delete_student(self, request, ctx): return await service_impl.delete_student(request, ctx)
+        async def make_payment(self, request, ctx): return await service_impl.make_payment(request, ctx)
+
+    app.mount("/connect", StudentServiceASGIApplication(ConnectStudentService()))
+    return app
+
+# Create default app for production
+app = create_app()

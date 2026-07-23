@@ -3,7 +3,7 @@ STACK_NAME=my-microservice-stack
 COMPOSE_FILE=docker-compose.yml
 PROD_COMPOSE_FILE=docker-compose.production.yml
 
-.PHONY: help build-all proto-gen deploy-dev deploy-prod stop-dev stop-prod clean
+.PHONY: help build-all proto-gen deploy-dev deploy-prod stop-dev stop-prod clean test e2e-test
 
 help:
 	@echo "Usage:"
@@ -15,6 +15,24 @@ help:
 	@echo "  make deploy-prod  - Deploy the stack to Docker Swarm"
 	@echo "  make stop-prod    - Remove the stack from Docker Swarm"
 	@echo "  make clean        - Remove build artifacts and temporary files"
+	@echo "  make test         - Run all tests (auth, gateway, student services)"
+	@echo "  make e2e-test     - Run Playwright E2E tests"
+
+test:
+	@echo "Running Auth Service tests..."
+	cd api/services/auth && bun test
+	@echo "\nRunning Gateway tests..."
+	cd api/gateway && bun test
+	@echo "\nRunning Student Service tests..."
+	cd api/services/student && PYTHONPATH=. uv run pytest tests/ -v
+
+e2e-test:
+	@echo "Running Playwright E2E tests..."
+	cd e2e && bun playwright test
+
+load-test-run:
+	@echo "Running k6 load tests..."
+	k6 run load-test/script.js
 
 # 1. Generate Proto Files
 proto-gen:
@@ -46,6 +64,6 @@ deploy: proto-gen build-all
 	# Note: In a real prod env, you would also 'docker push' images to a registry here
 	docker stack deploy -c $(PROD_COMPOSE_FILE) $(STACK_NAME)
 
-stop-prod:
+un-deploy:
 	@echo "Removing stack from Docker Swarm..."
 	docker stack rm $(STACK_NAME)
