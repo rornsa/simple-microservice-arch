@@ -19,9 +19,6 @@ service StudentService {
 
   rpc ListStudents(ListStudentsRequest)
       returns (ListStudentsResponse);
-
-  rpc MakePayment(MakePaymentRequest)
-      returns (MakePaymentResponse);
 }
 
 
@@ -104,15 +101,4 @@ message ListStudentsResponse {
   repeated Student data = 1;
 
   Pagination pagination = 2;
-}
-
-message MakePaymentRequest {
-  int64 student_id = 1;
-  double amount = 2;
-  string reference = 3;
-}
-
-message MakePaymentResponse {
-  bool success = 1;
-  string message = 2;
 }

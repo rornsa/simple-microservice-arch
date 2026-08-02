@@ -25,6 +25,8 @@ test:
 	cd api/gateway && bun test
 	@echo "\nRunning Student Service tests..."
 	cd api/services/student && PYTHONPATH=. uv run pytest tests/ -v
+	@echo "\nRunning Payment Service tests..."
+	cd api/services/payment && PYTHONPATH=. uv run pytest tests/ -v
 
 e2e-test:
 	@echo "Running Playwright E2E tests..."

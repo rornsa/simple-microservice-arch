@@ -101,31 +101,32 @@ async def consume_payment_successes():
 # =====================================================
 
 async def startup():
-
     global rabbit_connection
     global rabbit_channel
     global rabbit_exchange
 
-    rabbit_connection = (
-        await aio_pika.connect_robust(
-            settings.rabbitmq_url
-        )
-    )
+    for i in range(10):
+        try:
+            rabbit_connection = await aio_pika.connect_robust(
+                settings.rabbitmq_url
+            )
+            break
+        except Exception as err:
+            if i == 9:
+                raise
+            print(f"[Notification Service] RabbitMQ connection attempt {i+1}/10 failed ({err}), retrying in 2s...")
+            await asyncio.sleep(2)
 
-    rabbit_channel = (
-        await rabbit_connection.channel()
-    )
+    rabbit_channel = await rabbit_connection.channel()
 
     await rabbit_channel.set_qos(
         prefetch_count=PREFETCH_COUNT
     )
 
-    rabbit_exchange = (
-        await rabbit_channel.declare_exchange(
-            "microservices_exchange",
-            aio_pika.ExchangeType.TOPIC,
-            durable=True,
-        )
+    rabbit_exchange = await rabbit_channel.declare_exchange(
+        "microservices_exchange",
+        aio_pika.ExchangeType.TOPIC,
+        durable=True,
     )
 
     print(

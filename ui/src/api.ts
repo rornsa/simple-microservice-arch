@@ -97,8 +97,12 @@ export const makePayment = async (
   studentId: string,
   payload: { amount: number; reference: string }
 ): Promise<PaymentResult> => {
-  const res = await api.post(`/student/${studentId}/pay`, payload);
-  return res.data
+  const res = await api.post('/payments', {
+    student_id: Number(studentId),
+    amount: payload.amount,
+    reference: payload.reference,
+  });
+  return res.data;
 };
 
 export const fetchPayments = async (studentId?: string): Promise<PaymentsResponse> => {

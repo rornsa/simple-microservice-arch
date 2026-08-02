@@ -104,53 +104,36 @@ async def publish_payment_success(event: dict):
 # PAYMENT PROCESSOR
 # =====================================================
 
-async def process_payment(data: dict):
+async def process_bank_payment(
+    payment_id: int,
+    student_id: int,
+    amount: float,
+    reference: str,
+):
     async with payment_semaphore:
-        student_id = data["student_id"]
-        amount = data["amount"]
-        reference = data.get("reference")
-        payment = None
         try:
             # -----------------------------------------
-            # Create payment row
+            # External bank call
             # -----------------------------------------
-            db = SessionLocal()
-            payment = PaymentDB(
-                student_id=student_id,
-                amount=amount,
-                reference=reference,
-                status="PENDING",
-            )
-            db.add(payment)
-            db.commit()
-            db.refresh(payment)
-            payment_id = payment.id
-            print(f"[Payment] Created payment id={payment.id}")
-            db.close()
-            # -----------------------------------------
-            # External bank
-            # -----------------------------------------
-
-            txn_id = await call_external_bank_api(student_id,amount,reference)
+            txn_id = await call_external_bank_api(student_id, amount, reference)
 
             # -----------------------------------------
-            # Update payment
+            # Update payment in DB
             # -----------------------------------------
-
             db = SessionLocal()
             payment = db.query(PaymentDB).filter(PaymentDB.id == payment_id).first()
-            payment.status = "SUCCESS"
-            payment.transaction_id = txn_id
-            db.commit()
-            print(f"[Payment] SUCCESS id={payment.id}")
+            if payment:
+                payment.status = "SUCCESS"
+                payment.transaction_id = txn_id
+                db.commit()
+                print(f"[Payment] SUCCESS id={payment.id}")
             db.close()
 
             # -----------------------------------------
             # Publish success event
             # -----------------------------------------
-
             await publish_payment_success({
-                "payment_id": payment.id,
+                "payment_id": payment_id,
                 "student_id": student_id,
                 "amount": amount,
                 "reference": reference,
@@ -159,59 +142,42 @@ async def process_payment(data: dict):
             })
 
         except Exception as e:
-            print(f"[Payment] FAILED student={student_id} error={e}")
+            print(f"[Payment] FAILED payment_id={payment_id} student={student_id} error={e}")
+            db = SessionLocal()
+            payment = db.query(PaymentDB).filter(PaymentDB.id == payment_id).first()
             if payment:
                 try:
                     payment.status = "FAILED"
                     db.commit()
                 except Exception:
                     pass
-            raise
+            db.close()
 
 # =====================================================
-# MESSAGE HANDLER
-# =====================================================
-
-async def handle_message(message: aio_pika.IncomingMessage):
-    async with message.process():
-        payload = json.loads(message.body.decode())
-        await process_payment(payload)
-
-# =====================================================
-# CONSUMER
-# =====================================================
-
-async def consume_payment_requests():
-    queue = await rabbit_channel.declare_queue("payment_request_queue", durable=True)
-    await queue.bind(rabbit_exchange, routing_key="student.payment.requested")
-    async with queue.iterator() as iterator:
-        async for message in iterator:
-            task = asyncio.create_task(handle_message(message))
-            running_tasks.add(task)
-            task.add_done_callback(running_tasks.discard)
-
-# =====================================================
-# STARTUP
+# STARTUP / SHUTDOWN
 # =====================================================
 
 async def startup():
-
     global rabbit_connection
     global rabbit_channel
     global rabbit_exchange
-    rabbit_connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+    for i in range(10):
+        try:
+            rabbit_connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+            break
+        except Exception as err:
+            if i == 9:
+                raise
+            print(f"[Payment Service] RabbitMQ connection attempt {i+1}/10 failed ({err}), retrying in 2s...")
+            await asyncio.sleep(2)
     rabbit_channel = await rabbit_connection.channel()
     await rabbit_channel.set_qos(prefetch_count=PREFETCH_COUNT)
     rabbit_exchange = await rabbit_channel.declare_exchange(
-            "microservices_exchange",
-            aio_pika.ExchangeType.TOPIC,
-            durable=True,
+        "microservices_exchange",
+        aio_pika.ExchangeType.TOPIC,
+        durable=True,
     )
     print("[Payment Service] RabbitMQ connected")
-
-# =====================================================
-# SHUTDOWN
-# =====================================================
 
 async def shutdown():
     print("[Payment Service] Shutting down...")
@@ -230,13 +196,7 @@ async def shutdown():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await startup()
-    consumer_task = asyncio.create_task(consume_payment_requests())
     yield
-    consumer_task.cancel()
-    try:
-        await consumer_task
-    except asyncio.CancelledError:
-        pass
     await shutdown()
 
 # =====================================================
@@ -286,7 +246,46 @@ class PaymentServiceImpl(PaymentService):
                 proto_p.transaction_id = p.transaction_id
             proto_payments.append(proto_p)
         return payment_pb.ListPaymentsResponse(data=proto_payments)
-            
+
+    async def make_payment(
+        self,
+        request: payment_pb.MakePaymentRequest,
+        ctx: RequestContext
+    ) -> payment_pb.MakePaymentResponse:
+
+        # 1. Create pending payment record
+        db = SessionLocal()
+        payment = PaymentDB(
+            student_id=request.student_id,
+            amount=request.amount,
+            reference=request.reference,
+            status="PENDING",
+        )
+        db.add(payment)
+        db.commit()
+        db.refresh(payment)
+        payment_id = payment.id
+        db.close()
+        print(f"[Payment] Created payment id={payment_id} status=PENDING")
+
+        # 2. Spawn background task for external bank API call
+        task = asyncio.create_task(
+            process_bank_payment(
+                payment_id=payment_id,
+                student_id=request.student_id,
+                amount=request.amount,
+                reference=request.reference or "",
+            )
+        )
+        running_tasks.add(task)
+        task.add_done_callback(running_tasks.discard)
+
+        # 3. Return success response immediately
+        return payment_pb.MakePaymentResponse(
+            success=True,
+            message="Payment initiated successfully",
+        )
+
 # =====================================================
 # FASTAPI
 # =====================================================

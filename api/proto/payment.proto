@@ -6,6 +6,7 @@ import "google/protobuf/timestamp.proto";
 
 service PaymentService {
   rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc MakePayment(MakePaymentRequest) returns (MakePaymentResponse);
 }
 
 message Payment {
@@ -26,3 +27,15 @@ message ListPaymentsRequest {
 message ListPaymentsResponse {
   repeated Payment data = 1;
 }
+
+message MakePaymentRequest {
+  int64 student_id = 1;
+  double amount = 2;
+  string reference = 3;
+}
+
+message MakePaymentResponse {
+  bool success = 1;
+  string message = 2;
+}
+

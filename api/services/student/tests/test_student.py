@@ -118,14 +118,3 @@ async def test_delete_student(student_service, test_db_session):
     # Verify it's gone
     assert test_db_session.query(StudentDB).filter_by(id=student.id).first() is None
 
-@pytest.mark.asyncio
-async def test_make_payment(student_service, test_db_session):
-    student = StudentDB(first_name="Payment", last_name="Test", email="payment@example.com")
-    test_db_session.add(student)
-    test_db_session.commit()
-    test_db_session.refresh(student)
-
-    req = student_pb.MakePaymentRequest(
-        student_id=student.id, amount=100.0, reference="test123")
-    res = await student_service.make_payment(req, DummyContext())
-    assert res.success

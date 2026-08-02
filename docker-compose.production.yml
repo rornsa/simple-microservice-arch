@@ -70,7 +70,7 @@ services:
     networks:
       - micro-network
     environment:
-      - USER_SERVICE_URL=http://student:8000/connect
+      - STUDENT_SERVICE_URL=http://student:8000/connect
       - PAYMENT_SERVICE_URL=http://payment:8002/connect
       - AUTH_SERVICE_URL=http://auth:8001
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672

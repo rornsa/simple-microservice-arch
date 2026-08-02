@@ -16,20 +16,22 @@ import { RpcService } from "../rpc/rpc.service";
 import {
   CreateStudentDto,
   UpdateStudentDto,
-  StudentPaymentDto,
 } from "./student.dto";
+
+import { RedisService } from '../redis/redis.service';
 
 @ApiTags("student")
 @Controller("api/student")
 export class StudentController {
-  private readonly userClient: Client<typeof StudentService>;
+  private readonly studentService: Client<typeof StudentService>;
   constructor(
     private readonly rpcService: RpcService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {
-    this.userClient = this.rpcService.createClient(
+    this.studentService = this.rpcService.createClient(
       StudentService,
-      this.configService.get<string>("USER_SERVICE_URL"),
+      this.configService.get<string>("STUDENT_SERVICE_URL"),
     );
   }
 
@@ -37,18 +39,27 @@ export class StudentController {
   @ApiOperation({ summary: "List all student" })
   @ApiResponse({ status: 200, description: "Array of student" })
   async list() {
-    return await this.userClient.listStudents({
+    const cacheKey = "cache:students:list:page:1:limit:10";
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    const result = await this.studentService.listStudents({
       page: 1,
       limit: 10,
     });
+    await this.redisService.set(cacheKey, result, 60);
+    return result;
   }
 
   @Post()
   @ApiOperation({ summary: "Create a new user" })
   @ApiResponse({ status: 201, description: "User created" })
   @ApiResponse({ status: 400, description: "User already existed" })
-  create(@Body() dto: CreateStudentDto) {
-    return this.userClient.createStudent(dto);
+  async create(@Body() dto: CreateStudentDto) {
+    const result = await this.studentService.createStudent(dto);
+    await this.redisService.delByPattern("cache:students:*");
+    return result;
   }
 
   @Put(":id")
@@ -56,8 +67,10 @@ export class StudentController {
   @ApiParam({ name: "id", example: 1 })
   @ApiResponse({ status: 200, description: "Updated user" })
   @ApiResponse({ status: 404, description: "User not found" })
-  update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateStudentDto) {
-    return this.userClient.updateStudent({ ...dto, id: BigInt(id) });
+  async update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateStudentDto) {
+    const result = await this.studentService.updateStudent({ ...dto, id: BigInt(id) });
+    await this.redisService.delByPattern("cache:students:*");
+    return result;
   }
 
   @Delete(":id")
@@ -65,18 +78,11 @@ export class StudentController {
   @ApiParam({ name: "id", example: 1 })
   @ApiResponse({ status: 200, description: "Deleted user" })
   @ApiResponse({ status: 404, description: "User not found" })
-  delete(@Param("id", ParseIntPipe) id: number) {
-    return this.userClient.deleteStudent({
+  async delete(@Param("id", ParseIntPipe) id: number) {
+    const result = await this.studentService.deleteStudent({
       id: BigInt(id),
     });
-  }
-
-  @Post(":id/pay")
-  @ApiOperation({ summary: "Initiate a payment for a student" })
-  @ApiParam({ name: "id", example: 1 })
-  @ApiResponse({ status: 200, description: "Payment initiated successfully" })
-  @ApiResponse({ status: 404, description: "Student not found" })
-  pay(@Param("id", ParseIntPipe) id: number, @Body() dto: StudentPaymentDto) {
-    return this.userClient.makePayment({ ...dto, studentId: BigInt(id) });
+    await this.redisService.delByPattern("cache:students:*");
+    return result;
   }
 }

@@ -12,18 +12,20 @@ import { LoggerMiddleware } from './common/logger.middleware';
 import * as Joi from 'joi';
 
 
+import { RedisModule } from './redis/redis.module';
+
 @Module({
   imports: [ConfigModule.forRoot({
     isGlobal: true,
     validationSchema: Joi.object({
-      USER_SERVICE_URL: Joi.string().required(),
+      STUDENT_SERVICE_URL: Joi.string().required(),
       PAYMENT_SERVICE_URL: Joi.string().required(),
       RABBITMQ_URL: Joi.string().required(),
       AUTH_SERVICE_URL: Joi.string().required(),
       REDIS_URL: Joi.string().required(),
       PORT: Joi.number().required(),
     }),
-  }), StudentModule, RpcModule, PaymentModule, RabbitModule, AuthModule],
+  }), RedisModule, StudentModule, RpcModule, PaymentModule, RabbitModule, AuthModule],
   providers: [
     PaymentGateway,
     {

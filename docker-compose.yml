@@ -8,6 +8,11 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:alpine
@@ -25,20 +30,10 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./users.db
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-    command:
-      [
-        "uv",
-        "run",
-        "fastapi",
-        "dev",
-        "main.py",
-        "--port",
-        "8000",
-        "--host",
-        "0.0.0.0",
-      ]
+    command: [ "uv", "run", "fastapi", "dev", "main.py", "--port", "8000", "--host", "0.0.0.0" ]
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   payment:
     build: ./api/services/payment
@@ -50,22 +45,10 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./payments.db
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-    command:
-      [
-        "uv",
-        "run",
-        "fastapi",
-        "run",
-        "main.py",
-        "--port",
-        "8002",
-        "--host",
-        "0.0.0.0",
-        "--workers",
-        "5",
-      ]
+    command: [ "uv", "run", "fastapi", "run", "main.py", "--port", "8002", "--host", "0.0.0.0", "--workers", "5" ]
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   notification:
     build: ./api/services/notification
@@ -76,20 +59,10 @@ services:
       - ./api/services/notification:/app
     environment:
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-    command:
-      [
-        "uv",
-        "run",
-        "fastapi",
-        "dev",
-        "main.py",
-        "--port",
-        "8005",
-        "--host",
-        "0.0.0.0",
-      ]
+    command: [ "uv", "run", "fastapi", "dev", "main.py", "--port", "8005", "--host", "0.0.0.0" ]
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   auth:
     build: ./api/services/auth
@@ -101,7 +74,7 @@ services:
       - /app/node_modules
     environment:
       - JWT_SECRET=super-secret-key
-    command: ["bun", "run", "dev"]
+    command: [ "bun", "run", "dev" ]
 
   gateway:
     build: ./api/gateway
@@ -112,18 +85,22 @@ services:
       - ./api/gateway:/app
       - /app/node_modules
     environment:
-      - USER_SERVICE_URL=http://student:8000/connect
+      - STUDENT_SERVICE_URL=http://student:8000/connect
       - PAYMENT_SERVICE_URL=http://payment:8002/connect
       - AUTH_SERVICE_URL=http://auth:8001
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
       - REDIS_URL=redis://redis:6379
       - PORT=3000
-    command: ["bun", "run", "dev"]
+    command: [ "bun", "run", "dev" ]
     depends_on:
-      - rabbitmq
-      - redis
-      - student
-      - payment
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      student:
+        condition: service_started
+      payment:
+        condition: service_started
 
   ui:
     build: ./ui

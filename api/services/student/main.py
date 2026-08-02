@@ -1,7 +1,6 @@
 
 from contextlib import asynccontextmanager
 import asyncio
-import json
 import aio_pika
 from connectrpc.errors import ConnectError
 from fastapi import FastAPI
@@ -212,52 +211,6 @@ class StudentServiceImpl:
         finally:
             db.close()
 
-    async def make_payment(
-        self,
-        request,
-        ctx,
-    ):
-        import proto_gen.student_pb2 as student_pb
-
-        student_exists = None
-        with self.db_session_factory() as db:
-            student_exists = (
-                db.query(StudentDB.id)
-                .filter(StudentDB.id == request.student_id)
-                .first()
-            )
-
-        if not student_exists:
-            raise ConnectError(
-                Code.NOT_FOUND,
-                f"Student with ID {request.student_id} not found",
-            )
-
-        event_data = {
-            "student_id": request.student_id,
-            "amount": request.amount,
-            "reference": request.reference,
-        }
-        try:
-            if self.rmq_exchange:
-                await self.rmq_exchange.publish(
-                    aio_pika.Message(
-                        body=json.dumps(event_data).encode(),
-                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                    ),
-                    routing_key="student.payment.requested",
-                )
-            return student_pb.MakePaymentResponse(
-                success=True,
-                message="Payment initiation event published successfully",
-            )
-        except Exception as err:
-            print(f"[Student Service] RabbitMQ publish failed: {err}")
-            raise ConnectError(
-                Code.INTERNAL,
-                "Failed to publish payment request",
-            )
-
 # -----------------------
 # Application Setup (Production)
 # -----------------------
@@ -303,13 +256,23 @@ def create_app(
         nonlocal _rmq_connection, _rmq_exchange
         settings = get_settings()
         if rmq_url or settings.rabbitmq_url:
-            _rmq_connection = await aio_pika.connect_robust(rmq_url or settings.rabbitmq_url)
+            target_url = rmq_url or settings.rabbitmq_url
+            for i in range(10):
+                try:
+                    _rmq_connection = await aio_pika.connect_robust(target_url)
+                    break
+                except Exception as err:
+                    if i == 9:
+                        raise
+                    print(f"[Student Service] RabbitMQ connection attempt {i+1}/10 failed ({err}), retrying in 2s...")
+                    await asyncio.sleep(2)
             _rmq_channel = await _rmq_connection.channel()
             _rmq_exchange = await _rmq_channel.declare_exchange(
                 "microservices_exchange",
                 aio_pika.ExchangeType.TOPIC,
                 durable=True,
             )
+            service_impl.rmq_exchange = _rmq_exchange
         yield
         if _rmq_connection:
             await _rmq_connection.close()

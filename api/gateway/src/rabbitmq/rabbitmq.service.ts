@@ -5,13 +5,16 @@ import { AmqpConnectionManager, ChannelWrapper } from 'amqp-connection-manager';
 import { Channel } from 'amqplib';
 import { PaymentGateway } from '../websocket/payment.gateway';
 
+import { RedisService } from '../redis/redis.service';
+
 @Injectable()
 export class RabbitMQService implements OnModuleInit {
     private connection: AmqpConnectionManager;
     private channel: ChannelWrapper;
     constructor(
         private readonly paymentGateway: PaymentGateway,
-        private readonly configService: ConfigService
+        private readonly configService: ConfigService,
+        private readonly redisService: RedisService,
     ) { }
 
     async onModuleInit() {
@@ -29,16 +32,27 @@ export class RabbitMQService implements OnModuleInit {
                 await channel.bindQueue(
                     'payment_queue',
                     'microservices_exchange',
-                    'payment.processed.success',
+                    'payment.processed.*',
                 );
 
-                await channel.consume('payment_queue', (msg) => {
+                await channel.consume('payment_queue', async (msg) => {
                     if (!msg) return;
                     const data = JSON.parse(msg.content.toString());
-                    // console.log('Received payment event:', data);
-                    this.paymentGateway.server
-                        .to(`student:${data.student_id}`)
-                        .emit('payment.success', data);
+                    const routingKey = msg.fields.routingKey;
+
+                    // Invalidate payment caches for student & global list
+                    await this.redisService.del(`cache:payments:student:${data.student_id}`);
+                    await this.redisService.del('cache:payments:all');
+
+                    if (routingKey === 'payment.processed.pending' || data.status === 'PENDING') {
+                        this.paymentGateway.server
+                            .to(`student:${data.student_id}`)
+                            .emit('payment.pending', data);
+                    } else if (routingKey === 'payment.processed.success' || data.status === 'SUCCESS') {
+                        this.paymentGateway.server
+                            .to(`student:${data.student_id}`)
+                            .emit('payment.success', data);
+                    }
                     channel.ack(msg);
                 });
             },

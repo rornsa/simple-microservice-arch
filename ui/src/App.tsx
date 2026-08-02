@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { io } from "socket.io-client";
+import { Toaster, toast } from "sonner";
 import {
   fetchStudents,
   makePayment,
@@ -9,15 +10,9 @@ import {
   type Student,
 } from "./api";
 
-// ─── types ───────────────────────────────────────────────────────────────────
-interface Toast {
-  id: string;
-  kind: "success" | "error";
-  msg: string;
-}
+
 
 // ─── tiny helpers ─────────────────────────────────────────────────────────────
-const uid = () => Math.random().toString(36).slice(2);
 const initials = (s: Student) =>
   ((s.firstName[0] ?? "") + (s.lastName[0] ?? "")).toUpperCase();
 
@@ -66,55 +61,56 @@ function LoginForm({
   }
 
   return (
-    <div className="animate-in w-full max-w-[420px]">
+    <div className="animate-in w-full max-w-105">
       {/* Card */}
       <div className="bg-surface border border-border rounded-2xl p-6 shadow-card">
         {/* Brand */}
-        <div className="mb-8">
-          <div className="w-10 h-10 rounded-xl bg-white text-black text-lg flex items-center justify-center mb-5 font-bold select-none">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-7 h-7 bg-white rounded-md grid place-items-center text-sm">
             🎓
           </div>
-          <h1 className="text-xl font-semibold text-text-1 leading-snug">
-            Welcome back
-          </h1>
-          <p className="text-sm text-text-2 mt-1">
-            Sign in to Student Dashboard
-          </p>
+          <span className="text-sm font-semibold text-text-1">
+            Student Portal
+          </span>
         </div>
+
+        <h2 className="text-xl font-semibold text-text-1 mb-1">
+          Welcome back
+        </h2>
+        <p className="text-xs text-text-2 mb-6">
+          Sign in to access your student dashboard
+        </p>
+
+        {error && (
+          <div className="mb-4 px-3 py-2 bg-danger/10 border border-danger/20 rounded-lg text-xs text-danger font-medium">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email-input" className={LABEL}>Email</label>
+            <label className={LABEL}>Email address</label>
             <input
-              id="email-input"
-              className={FIELD}
               type="email"
-              placeholder="admin@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@gmail.com"
               required
+              className={FIELD}
             />
           </div>
+
           <div>
-            <label htmlFor="password-input" className={LABEL}>Password</label>
+            <label className={LABEL}>Password</label>
             <input
-              id="password-input"
-              className={FIELD}
               type="password"
-              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
+              className={FIELD}
             />
           </div>
-
-          {error && (
-            <p className="text-xs text-danger bg-danger-dim border border-danger/20 rounded-md px-3 py-2.5">
-              {error}
-            </p>
-          )}
-
-          <div className="mt-1"></div>
 
           <button type="submit" disabled={loading} className={BTN_PRIMARY}>
             {loading ? "Signing in…" : "Sign in"}
@@ -197,10 +193,8 @@ function StudentCard({
 // ─── PaymentForm ──────────────────────────────────────────────────────────────
 function PaymentForm({
   student,
-  onToast,
 }: {
   student: Student;
-  onToast: (t: Toast) => void;
 }) {
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
@@ -210,7 +204,7 @@ function PaymentForm({
     mutationFn: () =>
       makePayment(student.id, { amount: parseFloat(amount), reference }),
     onSuccess: (res) => {
-      onToast({ id: uid(), kind: "success", msg: res.data.message });
+      toast.info(res?.message || res?.data?.message || "Payment initiated...");
       setAmount("");
       setReference("");
       setTimeout(
@@ -220,11 +214,7 @@ function PaymentForm({
       );
     },
     onError: () =>
-      onToast({
-        id: uid(),
-        kind: "error",
-        msg: "Payment failed — please try again.",
-      }),
+      toast.error("Payment failed — please try again."),
   });
 
   const canSubmit =
@@ -414,7 +404,6 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [selected, setSelected] = useState<Student | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -446,10 +435,6 @@ export default function App() {
     setUserEmail(null);
     setSelected(null);
   };
-  const addToast = (t: Toast) => {
-    setToasts((p) => [...p, t]);
-    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== t.id)), 4000);
-  };
 
   // WebSocket
   useEffect(() => {
@@ -458,12 +443,12 @@ export default function App() {
       auth: { studentId: selected.id },
     });
     socket.on("connect", () => console.log(`WS connected: ${selected.id}`));
+    socket.on("payment.pending", (ev) => {
+      toast.info(`Payment of $${ev.amount} is processing...`);
+      queryClient.invalidateQueries({ queryKey: ["payments", selected.id] });
+    });
     socket.on("payment.success", (ev) => {
-      addToast({
-        id: uid(),
-        kind: "success",
-        msg: `Payment of $${ev.amount} succeeded!`,
-      });
+      toast.success(`Payment of $${ev.amount} succeeded!`);
       queryClient.invalidateQueries({ queryKey: ["payments", selected.id] });
     });
     socket.on("disconnect", () => console.log("WS disconnected"));
@@ -485,6 +470,7 @@ export default function App() {
   if (!token) {
     return (
       <div className="min-h-screen bg-bg flex flex-col">
+        <Toaster position="top-right" theme="dark" richColors />
         {/* Nav */}
         <nav className="border-b border-border bg-surface/60 backdrop-blur-md">
           <div className="max-w-5xl mx-auto px-4 h-12 flex items-center gap-3">
@@ -507,6 +493,7 @@ export default function App() {
   // ── Main ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-bg text-text-1">
+      <Toaster position="top-right" theme="dark" richColors />
       {/* ── Navigation ── */}
       <nav className="sticky top-0 z-50 border-b border-border bg-bg/80 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 h-12 flex items-center gap-3">
@@ -523,7 +510,7 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-3">
             {userEmail && (
-              <span className="text-xs text-text-3 hidden md:block truncate max-w-[200px]">
+              <span className="text-xs text-text-3 hidden md:block truncate max-w-50">
                 {userEmail}
               </span>
             )}
@@ -603,7 +590,7 @@ export default function App() {
           >
             {selected ? (
               <>
-                <PaymentForm student={selected} onToast={addToast} />
+                <PaymentForm student={selected} />
                 <PaymentHistory student={selected} />
               </>
             ) : (
@@ -620,27 +607,7 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      {/* ── Toasts ── */}
-      <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={[
-              "animate-toast flex items-center gap-2 px-3 py-2 rounded-lg border",
-              "text-sm font-medium shadow-card pointer-events-auto max-w-xs",
-              t.kind === "success"
-                ? "bg-surface border-success/30 text-success"
-                : "bg-surface border-danger/30 text-danger",
-            ].join(" ")}
-          >
-            <span className="text-base">
-              {t.kind === "success" ? "✓" : "✕"}
-            </span>
-            <span className="text-text-1 text-xs">{t.msg}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
+
